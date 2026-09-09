@@ -171,6 +171,7 @@ Scope from the 2026-09-09 working session and Confluence write-up **OKD - Opensh
 | D026 | 2026-09-09 | Tracker | This README is the decision + status system | Locked | Balaji | Team asked for tracking in the README | Side spreadsheet / Notion as SoT |
 | D027 | 2026-09-09 | Cost posture | **Open** — 24/7 vs destroy-at-night (~$1.4k–2k/month if left up) | Open | Team | Control plane is not cheap | Silent always-on with no budget alarm |
 | D028 | 2026-09-09 | Ownership | Lanes: Srikanth scope/assessment; Balaji AWS/tracker; Sibi sec+o11y+chaos; Vignesh CI/supply chain; Umesh GitOps+app | Proposed | Balaji | Five people, one lane each; see Team section | Everyone on the installer |
+| D029 | 2026-09-09 | AI posture | Do **A1 + A2 + A3** only. A4 optional. A5–A8 overkill for this POC | Proposed | Srikanth | Week 4 already names AI RCA; more AI hides the OKD eval | AI on every layer |
 
 ---
 
@@ -204,6 +205,7 @@ Native OKD layers (not a bake-off unless you supersede D014/D015/D025): OVN-Kube
 | T20 | Coverage | A language runners+GHA artifact · B Codecov · C Sonar coverage | **A** | | D022 | 3 |
 | T21 | App scale | A HPA+MachineAutoscaler · B KEDA · C Karpenter | **A** | | D010 | 2 / 4 |
 | T22 | Mesh (stretch) | A none · B OpenShift Service Mesh · C Linkerd | **A** for W1–W3 | | D014 | stretch |
+| A1–A8 | AI uses | See **AI utilization** | A1+A2+A3 | | D029 | 2 / 4 |
 
 ---
 
@@ -498,6 +500,36 @@ Demo already has **Envoy frontend-proxy**. Mesh is not required to complete week
 **Research rec:** A until week 3 is green.
 
 ---
+
+## AI utilization — do, optional, overkill
+
+Srikanth’s scope already includes week 4 **AI-assisted incident analysis / RCA**. That is enough AI for a four-week OKD evaluation. More AI does not make the platform look better; it makes it harder to tell whether **OKD** worked.
+
+Rule: AI may **explain** evidence. It must not **be** the control plane (no AI that applies GitOps, signs images, or changes SCC).
+
+| ID | Where | Verdict | What to do | Why this is / isn’t overkill | Owner |
+|---|---|---|---|---|---|
+| A1 | Workload already in the demo | **Do** | Keep OTel Demo **Agent**, **Chatbot**, and **MCP** services. Treat them as “can OKD run an AI-shaped microservice?” — Routes, SCC, secrets for the model API, traces of LLM calls | Free. The demo ships this. You are not building an LLM platform | Umesh |
+| A2 | Week 4 RCA (in scope) | **Do** | **k8sgpt** (`analyze --explain`, anonymize names). Side-by-side with Sibi’s human RCA after a chaos run. Score accuracy, time, hallucination | This *is* the week-4 deliverable. One binary, one afternoon. Overkill would be skipping the human comparison | Sibi |
+| A3 | Drafting the assessment | **Do** | Use Cursor/ChatGPT on **sanitized** notes (operator status, MTTD/MTTR, SCC table) to draft `docs/assessment.md`. Srikanth edits and signs | Writing aid. Zero cluster risk. Overkill only if the draft ships without evidence | Srikanth |
+| A4 | Alert / scan triage | **Optional** | If week 3 Trivy/Semgrep/Falco is a wall of noise: k8sgpt or a small LLM pass to **group and rank**, not to auto-close | Useful only after you have real alert volume. Installing it in week 1 is theater | Sibi + Vignesh |
+| A5 | HolmesGPT / Robusta on every alert | **Overkill unless A2 is boring** | Multi-step agent over Prometheus+Loki. Do this only if k8sgpt is clearly too shallow *and* week 3 o11y is solid | Extra operator, extra prompt-injection surface, extra cost. Easy to fail the POC on the AI tool instead of OKD | Sibi |
+| A6 | AI writes GitOps / Helm / Kyverno | **Overkill** | Humans review every manifest. Copilot in the IDE is fine; unreviewed AI apply is not | A bad SCC or Route takes the shop down. Git is the source of truth, not a chatbot | All |
+| A7 | AI picks chaos experiments | **Overkill** | Use Litmus/Chaos Mesh catalogs + OTel **feature flags** (known failure modes). You need repeatable SLO math | Random AI faults are not science; you cannot report MTTD | Sibi |
+| A8 | AI as merge gate (auto-approve, auto-fix CI) | **Overkill** | Semgrep/CodeQL/Trivy stay deterministic. An LLM may *comment* on a PR, never *pass* the check | Non-reproducible gates poison the supply-chain story | Vignesh |
+
+**Team pick for D029:** `_unpicked_` → default rec is **A1 + A2 + A3 on, A4 if noisy, A5–A8 off**.
+
+Hard constraints if any AI talks to the cluster:
+
+- No `kubeadmin`, kubeconfig, pull secrets, or AWS keys in prompts
+- Prefer k8sgpt anonymization / local or private model (Ollama) over dumping cluster objects to a public API
+- Record in the assessment: what the tool got right, what it invented, time vs human
+
+What AI will **not** fix: Route 53, SCC vs Helm, worker RAM, dual Prometheus. Those are the actual OKD findings.
+
+---
+
 
 ## Week tracker
 
