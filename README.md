@@ -1,14 +1,14 @@
 # OKDMania
 
-Four-week production-scale POC: evaluate [OKD](https://okd.io/) on AWS as an enterprise platform, GitOps-deploy the [OpenTelemetry Demo](https://opentelemetry.io/docs/demo/), then prove security, observability, and self-healing.
+Learning-first production-scale POC: evaluate [OKD](https://okd.io/) on AWS **UPI** (we provision every machine), GitOps-deploy the [OpenTelemetry Demo](https://opentelemetry.io/docs/demo/), then prove security, observability, and self-healing. Calendar is a guide; **learning is the constraint**, not four weeks.
 
 This README is the **single tracker**. Every architecture, tool, and process call is logged here. Progress is ticked here. Do not keep a parallel spreadsheet or Slack-only decision.
 
 | | |
 |---|---|
 | **Current week** | Week 0 — bootstrap (cluster not started) |
-| **Current focus** | Team picks tools (T01–T22). Infra decisions D007–D015 still Proposed. |
-| **Cluster** | Not installed |
+| **Current focus** | **UPI locked (D031).** Team still picks T01–T22. Infra D007, D009–D015 Proposed. |
+| **Cluster** | Not installed · method = AWS UPI (Terraform machines + Ignition) |
 | **Last updated** | 2026-09-09 · Balaji BR |
 | **Repo** | https://github.com/balajirajmohan/OKDMania |
 
@@ -29,7 +29,7 @@ Week 4 ░░░░░░░░░░░░░░░░░░░░  chaos + ass
 | Decisions | Scope locked. Tools are **options**, not picks yet | Fill **Team pick** on T01–T22 |
 | GitHub repo | Empty besides this README | Invite `deepan011`, `umeshkumaarjj-dev`, `srikanth-karthi`, `sibisaravanan` |
 | AWS account / DNS | Unknown | Need Route 53 zone + quotas |
-| OKD cluster | Not started | Depends on DNS + IAM |
+| OKD cluster | Not started · **UPI** | Terraform stacks + Ignition + CSR approve; then Operators |
 | Argo CD | Not started | Depends on cluster |
 | OTel Demo | Not started | Depends on GitOps |
 | Security gates | Not started | Depends on repo + CI |
@@ -67,7 +67,7 @@ These are proposed ownership lanes so five people are not all on the installer. 
 | Person | GitHub | Owns | Backup |
 |---|---|---|---|
 | Srikanth K | [srikanth-karthi](https://github.com/srikanth-karthi) | Scope, OKD architecture, Operator catalog, final assessment | Balaji |
-| Balaji BR | [balajirajmohan](https://github.com/balajirajmohan) | AWS, IPI install, DNS, IAM, this README tracker | Srikanth |
+| Balaji BR | [balajirajmohan](https://github.com/balajirajmohan) | AWS **UPI** (Terraform every stack), DNS, IAM, Ignition, this README tracker | Srikanth |
 | Sibi | [sibisaravanan](https://github.com/sibisaravanan) | Platform hardening: `gitops/platform/`, SCC, policy, runtime, o11y, SLOs, TLS, multi-tenancy, chaos, AI RCA | Vignesh (CI side), Umesh (app) |
 | Vignesh | [deepan011](https://github.com/deepan011) | CI, SAST/DAST, image/SBOM/sign, git secrets, coverage | Sibi |
 | Umesh | [umeshkumaarjj-dev](https://github.com/umeshkumaarjj-dev) | GitOps, OTel Demo, Routes, app HPA/PDB | Sibi (SCC), Balaji (DNS/LB) |
@@ -76,7 +76,7 @@ These are proposed ownership lanes so five people are not all on the installer. 
 
 You wrote the four-week scope. Stay on **what good looks like**, not every YAML file.
 
-- **Now:** Invite yourself to the repo. Walk T01–T22 with the team and lock picks. Lock or reject infra rows D007–D015 (version, IPI, size, region, cost D027). Export the Confluence task page into `docs/`.
+- **Now:** Invite yourself to the repo. Walk T01–T22 with the team and lock picks. Lock or reject remaining infra rows (version, size, region, cost). Export the Confluence task page into `docs/`.
 - **Week 1:** Own `docs/okd-architecture.md` — CVO, MCO, CNO, Ingress, Auth, SCC vs RBAC, Cluster Monitoring. Pair with Balaji on first `oc get clusteroperators` after install. You sign off “cluster is healthy.”
 - **Week 2–3:** Review GitOps AppProject and SCC exceptions; decide what is an OKD finding vs an app bug.
 - **Week 4:** Own `docs/assessment.md` — scorecard, production recommendation, limitations. Pair with Sibi on MTTD/MTTR from chaos.
@@ -84,12 +84,13 @@ You wrote the four-week scope. Stay on **what good looks like**, not every YAML 
 
 ### Balaji — what you can do
 
-You own the **cluster existing** and the **tracker staying true**.
+You own **every AWS object** and the **tracker staying true**. UPI means the installer does not spawn EC2 for you.
 
-- **Now:** Add the four collaborators. Create repo layout (`infra/`, `cluster/`, `gitops/`, `.github/`, `docs/`) and `.gitignore` for kubeconfigs/tfstate/pull-secret. Confirm Route 53 zone + AWS quotas/region.
-- **Week 1:** Terraform VPC/DNS/IAM. `install-config.yaml` template. Run `openshift-install`. Wire GitHub (or HTPasswd) IdP so kubeadmin is not forever. gp3 StorageClass + registry off EmptyDir. Update **Where we are** after every milestone.
-- **Week 2–4:** Node scaling (MachineSets, MachineAutoscaler), IngressController replicas, destroy/recreate runbook, budget alarm.
-- **Tool votes you should drive:** T17, T21, D008–D013, D027.
+- **Now:** Add the four collaborators. Create repo layout (`infra/aws/upi/` modules, `cluster/`, `gitops/`, `.github/`, `docs/`) and `.gitignore` for kubeconfigs/tfstate/pull-secret/ignition. Confirm Route 53 zone + AWS quotas/region. Read [OKD AWS UPI](https://docs.okd.io/4.21/installing/installing_aws/upi/installing-aws-user-infra.html); use official CloudFormation as the *spec*, implement in Terraform.
+- **Bring-up (will take more than a calendar week — that is the learning):** Terraform: VPC, subnets, NAT, SGs, IAM instance profiles, S3 (Ignition), NLBs (6443 API, 22623 machine-config, 80/443 apps), Route 53 `api` / `api-int` / `*.apps`. `openshift-install create install-config` → manifests → **remove MachineSets from manifests** so the cluster does not try to create machines → ignition. Launch bootstrap + 3 masters + 3 workers with correct Ignition. Approve CSRs. Wait `bootstrap-complete`. Destroy bootstrap. Then IdP, gp3, registry.
+- **Day-2 (do not skip):** After the cluster is up, **create MachineSets** so later nodes are cluster-managed. UPI install does *not* give you this for free — official docs: control plane and initial compute are not governed by MachineSets. Without this, chaos “replace a worker” is just Terraform apply, not OKD.
+- **Teardown:** reverse-order Terraform destroy (workers → masters → bootstrap leftover → NLBs → VPC). There is no `openshift-install destroy cluster` that owns your UPI stacks.
+- **Tool votes you should drive:** T17, T21, D012–D013, D027, D031.
 
 ### Sibi — what you can do
 
@@ -180,16 +181,16 @@ Scope from the 2026-09-09 working session and Confluence write-up **OKD - Opensh
 |---|---|---|---|---|---|---|---|
 | D001 | 2026-09-09 | Platform | Evaluate **OKD** (OpenShift OSS), not vanilla K8s or EKS as the SUT | Locked | Srikanth | Written POC objective | Distro bake-off |
 | D002 | 2026-09-09 | Cloud | Run the cluster on **AWS** | Locked | Srikanth | Scope: provision AWS then install OKD | GCP / Azure / bare metal for this POC |
-| D003 | 2026-09-09 | Duration | **Four weeks**, then a written assessment | Locked | Srikanth | Confluence scope | Open-ended lab |
+| D003 | 2026-09-09 | Duration | **Four weeks**, then a written assessment | Superseded | Srikanth | Confluence first pass | Open-ended lab |
 | D004 | 2026-09-09 | Workload | **OpenTelemetry Demo** as the multi-service app | Locked | Team | Polyglot, OTLP, loadgen, feature flags | Synthetic nginx; custom greenfield app |
 | D005 | 2026-09-09 | GitOps family | Use an **Argo CD** family tool (flavor still open in T01) | Locked | Srikanth | Week 2 scope named Argo CD | Flux as *primary* unless team supersedes D005 |
 | D006 | 2026-09-09 | Outcome | Technical assessment: what works, toil, production recommendation | Locked | Srikanth | POC is evaluation, not a forever prod cluster | Silent “it works on my cluster” |
 | D007 | 2026-09-09 | OKD version | **4.21** (current release) | Proposed | Balaji | [okd.io](https://okd.io/) lists 4.21 current, 4.22 engineering candidate | 4.22 EC as the cluster of record |
-| D008 | 2026-09-09 | Install method | **Terraform VPC/DNS/IAM** + **openshift-install IPI** into that VPC | Proposed | Balaji | Matches “Terraform then install”; installer already owns machines | Full UPI; SNO; Assisted Installer |
-| D009 | 2026-09-09 | IAM mode | **Mint** for week 1; document **STS + ccoctl** as stretch | Proposed | Balaji | STS is more production-like but can blow week 1 | STS as a week-1 gate |
+| D008 | 2026-09-09 | Install method | **Terraform VPC/DNS/IAM** + **openshift-install IPI** into that VPC | Superseded | Balaji | Speed; installer owns machines | Full UPI; SNO; Assisted Installer |
+| D009 | 2026-09-09 | IAM mode | **Mint** for week 1; document **STS + ccoctl** as stretch | Proposed | Balaji | STS is more production-like but can blow bring-up | STS as a bring-up gate |
 | D010 | 2026-09-09 | Topology | HA: **3 control plane + 3 workers**, 3 AZs, public API + public `*.apps` | Proposed | Balaji | Production-scale POC, not single-node | SNO; private-only API (unless security requires it) |
 | D011 | 2026-09-09 | Size | Masters **m6i.xlarge**; workers **m6i.2xlarge**; 120 GB gp3 | Proposed | Balaji | Demo + Kafka + Loki will thrash official worker minimum | Default `m6i.large` workers |
-| D012 | 2026-09-09 | DNS | Authoritative **public Route 53** zone required before install | Proposed | Balaji | IPI hard requirement for `api.` and `*.apps.` | DIY DNS / nip.io |
+| D012 | 2026-09-09 | DNS | Authoritative **public Route 53** zone: `api.`, `api-int.`, `*.apps.` | Proposed | Balaji | UPI: you create the records; they still must resolve | DIY DNS / nip.io |
 | D013 | 2026-09-09 | Region | Prefer **ap-south-1** if team is IST; confirm in D012 PR | Open | Team | Latency for console/oc | — |
 | D014 | 2026-09-09 | CNI / LB | Keep **OVN-Kubernetes** + **Ingress Operator (HAProxy)** + AWS NLB | Proposed | Balaji | Replacing CNI invalidates the OKD eval | Cilium/Calico as CNI; extra mesh in W1–W2 |
 | D015 | 2026-09-09 | Service discovery | **CoreDNS + Services + Routes** only | Proposed | Balaji | Kubernetes DNS is the product | Consul / extra registry |
@@ -207,6 +208,9 @@ Scope from the 2026-09-09 working session and Confluence write-up **OKD - Opensh
 | D027 | 2026-09-09 | Cost posture | **Open** — 24/7 vs destroy-at-night (~$1.4k–2k/month if left up) | Open | Team | Control plane is not cheap | Silent always-on with no budget alarm |
 | D028 | 2026-09-09 | Ownership | Lanes: Srikanth scope/assessment; Balaji AWS/tracker; Sibi platform hardening (`gitops/platform/`, sec, o11y, SLOs, chaos) + extras E1–E9; Vignesh CI; Umesh GitOps+app | Proposed | Balaji | Sibi is the strongest IC — extra load is expected, not stretch-only | Everyone on the installer; Sibi idle until week 3 |
 | D029 | 2026-09-09 | AI posture | Do **A1 + A2 + A3** only. A4 optional. A5–A8 overkill for this POC | Proposed | Srikanth | Week 4 already names AI RCA; more AI hides the OKD eval | AI on every layer |
+| D030 | 2026-09-09 | Duration | **Learning-first**; four weeks is a guide, not a gate | Locked | Team | UPI + E2E is the curriculum; calendar slips | Artificial IPI rush |
+| D031 | 2026-09-09 | Install method | **AWS UPI**: Terraform (modeled on official CloudFormation) creates VPC, NLBs, IAM, bootstrap, 3 masters, 3 workers. `openshift-install` generates install-config, manifests, Ignition only. Then wait bootstrap, approve CSRs, delete bootstrap | Locked | Team | End-to-end learning: every AWS object, Ignition, ports 6443/22623, teardown | IPI (D008); SNO; Assisted |
+| D032 | 2026-09-09 | UPI day-2 | After UPI cluster is healthy, **create MachineSets** so extra workers are cluster-managed | Proposed | Balaji | Official UPI: initial machines are *not* governed by MachineSets. Without this, MHC/autoscaler chaos is fake | Leave all nodes as snowflake EC2 forever |
 
 ---
 
@@ -214,7 +218,7 @@ Scope from the 2026-09-09 working session and Confluence write-up **OKD - Opensh
 
 Research rec is a starting point, not a lock. Fill **Team pick** with `A`, `B`, `C`, `Skip`, or a pair like `A+B` where marked. Then lock the matching D-row.
 
-Native OKD layers (not a bake-off unless you supersede D014/D015/D025): OVN-Kubernetes, HAProxy Routes + AWS NLB, CoreDNS, OAuth, Cluster Monitoring, CRI-O/SCOS, Machine API HPA/autoscaler.
+Native OKD layers (not a bake-off unless you supersede D014/D015/D025): OVN-Kubernetes, HAProxy Routes + AWS NLB, CoreDNS, OAuth, Cluster Monitoring, CRI-O/SCOS. Machine API for *new* workers after D032 — UPI initial nodes are snowflakes.
 
 | ID | Layer | Options | Research rec | Team pick | D-id | Week |
 |---|---|---|---|---|---|---|
@@ -582,20 +586,28 @@ What AI will **not** fix: Route 53, SCC vs Helm, worker RAM, dual Prometheus. Th
 - [ ] Repo layout created (`infra/`, `cluster/`, `gitops/`, `.github/workflows/`, `docs/`)
 - [ ] `.gitignore` covers `cluster/*/auth/`, kubeconfigs, `*.tfstate`, pull secrets
 
-### Week 1 — OKD exploration and infrastructure
+### Week 1 — OKD UPI infrastructure (expect this to spill)
 
-**Goal:** Healthy HA cluster. Console + `oc` work. Operators understood.
+**Goal:** You can draw every AWS object. Cluster Operators are Available. Console + `oc` work.
+
+Official recipe: [Installing on AWS with user-provisioned infrastructure](https://docs.okd.io/4.21/installing/installing_aws/upi/installing-aws-user-infra.html). CloudFormation templates = spec. We implement **Terraform**.
 
 - [ ] Architecture notes: CVO, MCO, CNO, Ingress, Auth, Monitoring, SCC vs RBAC (`docs/okd-architecture.md`)
-- [ ] Terraform envelope applied: VPC (3 AZ), public/private subnets, NAT, IGW, Route 53, S3, installer IAM (D008)
-- [ ] `install-config.yaml` committed as a **template** (no pull secret / ssh key)
-- [ ] `openshift-install create cluster` succeeded (D007 D010 D011)
+- [ ] Terraform: VPC, 3 AZ public/private subnets, NAT, IGW, S3 (Ignition)
+- [ ] Terraform: IAM instance profiles (bootstrap / master / worker)
+- [ ] Terraform: SGs + **NLB 6443** (API) + **NLB 22623** (machine-config/Ignition, internal) + apps 80/443
+- [ ] Route 53: `api.` `api-int.` `*.apps.` pointed at the right LBs (D012)
+- [ ] `install-config.yaml` template committed (no pull secret / ssh key)
+- [ ] Manifests generated; **MachineSets removed** so installer does not fight UPI machines
+- [ ] Ignition configs: bootstrap, master, worker
+- [ ] Bootstrap instance up; 3 control plane; 3 compute (FCOS/SCOS AMI, gp3, m6i as D011)
+- [ ] CSRs approved; `openshift-install wait-for bootstrap-complete` then `wait-for install-complete`
+- [ ] Bootstrap instance **destroyed**
 - [ ] `oc get clusteroperators` all `Available=True`
-- [ ] `api.<cluster>.<base>` and `*.apps.<cluster>.<base>` resolve
-- [ ] kubeadmin password in AWS SM; GitHub (or HTPasswd) IdP working; second admin can log in
+- [ ] kubeadmin in AWS SM; GitHub/HTPasswd IdP; second admin can log in
 - [ ] Default StorageClass = EBS gp3; registry not on EmptyDir
-- [ ] MachineSets, IngressController, Cluster Monitoring (user-workload flag) documented
-- [ ] Week 1 findings in `docs/week-1.md`
+- [ ] **D032:** MachineSet created for additional workers (initial UPI nodes stay as-is)
+- [ ] Week 1 findings in `docs/week-1.md` — include a resource map (Terraform name → OKD equivalent IPI would have created)
 
 ### Week 2 — Enterprise workload and GitOps
 
@@ -638,11 +650,11 @@ What AI will **not** fix: Route 53, SCC vs Helm, worker RAM, dual Prometheus. Th
 
 - [ ] Baseline SLOs from loadgen (p95, error rate) captured
 - [ ] T18 app experiments + OTel feature-flag failures
-- [ ] Infra experiments: pod/node kill, MachineHealthCheck replace, autoscaler
+- [ ] Infra experiments: pod kill; worker terminate; **MachineSet-backed** node replace if D032 done (else Terraform recreate — document the delta)
 - [ ] T19 RCA vs human RCA notes
 - [ ] Scorecard 1–5: install, day-2, security, o11y, GitOps friction, cost, skills
 - [ ] Production recommendation in `docs/assessment.md`
-- [ ] Teardown: `openshift-install destroy cluster` then `terraform destroy`
+- [ ] Teardown: Terraform reverse-order destroy (no `openshift-install destroy` for UPI stacks)
 - [ ] This README **Where we are** set to complete
 
 ---
@@ -658,21 +670,22 @@ What AI will **not** fix: Route 53, SCC vs Helm, worker RAM, dual Prometheus. Th
 | R005 | kubeadmin used forever | Open | IdP on week 1 day 4 |
 | R006 | Too many CNCF tools | Open | T01–T22 is the allow-list; one primary per layer |
 | R007 | Confluence tasks not in Git | Open | Export before week 1 starts |
+| R008 | UPI bootstrap hang (DNS, 22623, tags, IAM, CSR) | Open | Checklist in week 1; pair debug; do not skip D032 |
 
 ---
 
 ## Target repo layout (not created yet)
 
 ```
-infra/aws/                 Terraform VPC / DNS / IAM
-cluster/poc/               install-config template; gitignore auth/
+infra/aws/upi/             Terraform: VPC, NLB, IAM, bootstrap, masters, workers
+cluster/poc/               install-config, manifests, ignition (gitignore auth/)
 gitops/root/               Argo CD app-of-apps
 gitops/platform/           GitOps, Kyverno, Falco, ESO, Loki, Collector
 gitops/apps/otel-demo/     Kustomize overlays
 .github/workflows/         SAST, image scan, DAST, SBOM
 security/policies/         Kyverno ClusterPolicies
-chaos/                     Litmus workflows
-docs/                      Findings, confluence export, assessment
+chaos/                     Chaos experiments
+docs/                      Findings, confluence export, resource map, assessment
 ```
 
 ---
