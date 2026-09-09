@@ -27,7 +27,7 @@ Week 4 ░░░░░░░░░░░░░░░░░░░░  chaos + ass
 | Stream | Status | Blocker |
 |---|---|---|
 | Decisions | Scope locked. Tools are **options**, not picks yet | Fill **Team pick** on T01–T22 |
-| GitHub repo | Empty besides this README | Invite `deepan011`, `umeshkumaarjj-dev` |
+| GitHub repo | Empty besides this README | Invite `deepan011`, `umeshkumaarjj-dev`, `srikanth-karthi`, `sibisaravanan` |
 | AWS account / DNS | Unknown | Need Route 53 zone + quotas |
 | OKD cluster | Not started | Depends on DNS + IAM |
 | Argo CD | Not started | Depends on cluster |
@@ -39,7 +39,7 @@ Week 4 ░░░░░░░░░░░░░░░░░░░░  chaos + ass
 
 - [ ] Confirm public Route 53 hosted zone (authoritative NS)
 - [ ] Confirm AWS region, account, and instance quotas
-- [ ] Invite GitHub users `deepan011` and `umeshkumaarjj-dev`
+- [ ] Invite GitHub users `deepan011`, `umeshkumaarjj-dev`, `srikanth-karthi`, `sibisaravanan`
 - [ ] Export Confluence task page into `docs/` (login-gated from tooling)
 - [ ] For each T01–T22 row, write the **Team pick** (or `Skip`) and lock the matching D-id
 - [ ] Review infra **Proposed** rows D007–D015; lock or supersede
@@ -60,16 +60,82 @@ Week 4 ░░░░░░░░░░░░░░░░░░░░  chaos + ass
 
 ---
 
-## Team
+## Team — who does what
 
-| Person | GitHub | Track |
+These are proposed ownership lanes so five people are not all on the installer. Challenge a lane in the decision log; until then, this is how work is split.
+
+| Person | GitHub | Owns | Backup |
+|---|---|---|---|
+| Srikanth K | [srikanth-karthi](https://github.com/srikanth-karthi) | Scope, OKD architecture, Operator catalog, final assessment | Balaji |
+| Balaji BR | [balajirajmohan](https://github.com/balajirajmohan) | AWS, IPI install, DNS, IAM, this README tracker | Srikanth |
+| Sibi | [sibisaravanan](https://github.com/sibisaravanan) | Security (SCC, policy, runtime) + observability + chaos | Vignesh (sec), Umesh (o11y) |
+| Vignesh | [deepan011](https://github.com/deepan011) | CI, SAST/DAST, image/SBOM/sign, git secrets, coverage | Sibi |
+| Umesh | [umeshkumaarjj-dev](https://github.com/umeshkumaarjj-dev) | GitOps, OTel Demo, Routes, app HPA/PDB | Sibi (SCC), Balaji (DNS/LB) |
+
+### Srikanth — what you can do
+
+You wrote the four-week scope. Stay on **what good looks like**, not every YAML file.
+
+- **Now:** Invite yourself to the repo. Walk T01–T22 with the team and lock picks. Lock or reject infra rows D007–D015 (version, IPI, size, region, cost D027). Export the Confluence task page into `docs/`.
+- **Week 1:** Own `docs/okd-architecture.md` — CVO, MCO, CNO, Ingress, Auth, SCC vs RBAC, Cluster Monitoring. Pair with Balaji on first `oc get clusteroperators` after install. You sign off “cluster is healthy.”
+- **Week 2–3:** Review GitOps AppProject and SCC exceptions; decide what is an OKD finding vs an app bug.
+- **Week 4:** Own `docs/assessment.md` — scorecard, production recommendation, limitations. Pair with Sibi on MTTD/MTTR from chaos.
+- **Tool votes you should drive:** T01, T16, T17, T22, D007–D015, D027.
+
+### Balaji — what you can do
+
+You own the **cluster existing** and the **tracker staying true**.
+
+- **Now:** Add the four collaborators. Create repo layout (`infra/`, `cluster/`, `gitops/`, `.github/`, `docs/`) and `.gitignore` for kubeconfigs/tfstate/pull-secret. Confirm Route 53 zone + AWS quotas/region.
+- **Week 1:** Terraform VPC/DNS/IAM. `install-config.yaml` template. Run `openshift-install`. Wire GitHub (or HTPasswd) IdP so kubeadmin is not forever. gp3 StorageClass + registry off EmptyDir. Update **Where we are** after every milestone.
+- **Week 2–4:** Node scaling (MachineSets, MachineAutoscaler), IngressController replicas, destroy/recreate runbook, budget alarm.
+- **Tool votes you should drive:** T17, T21, D008–D013, D027.
+
+### Sibi — what you can do
+
+You own **week 3 and week 4**: make the platform look like a production security/o11y/resilience story.
+
+- **Now:** Pick T11–T16, T18, T19 (secrets runtime, policy, Falco/Tetragon, logs, traces, chaos, AI RCA). You can draft Kyverno (or Gatekeeper) policies as YAML in `security/policies/` before a cluster exists.
+- **Week 1:** Learn SCC vs PSA vs NetworkPolicy on this cluster; help Balaji enable user-workload monitoring. Do not wait until week 3 to touch `oc`.
+- **Week 2:** Pair with Umesh on every demo pod that needs `anyuid`/privileged. Write the SCC audit table. Default-deny NetworkPolicy on `otel-demo`.
+- **Week 3:** Install chosen policy + runtime tools. Loki/Vector (or chosen T14). OTel Collector → chosen T15. Dashboards + Alertmanager. You are the person who can show **one checkout failure in metrics, logs, and a trace**.
+- **Week 4:** Run chosen chaos tool (T18). Capture baseline SLOs with Umesh’s loadgen. k8sgpt/HolmesGPT (T19) vs your own RCA. Hand Srikanth the MTTD/MTTR numbers.
+- **Tool votes you should drive:** T11, T12, T13, T14, T15, T18, T19.
+
+### Vignesh — what you can do
+
+You own **laptop → PR → merge** security. The cluster should refuse unsigned/unscanned work because of you, not because someone clicked in a console.
+
+- **Now:** Add `pre-commit` (gitleaks, hadolint, kubeconform). Scaffold `.github/workflows/` even before AWS exists — Actions do not need the cluster. First history scan of the repo.
+- **Week 1:** Keep CI green on the Terraform/`install-config` template PRs (Checkov on `infra/`).
+- **Week 2:** No secret YAML in `gitops/`. Wire chosen T11 from the app side with Umesh (ExternalSecret refs, not values).
+- **Week 3:** Turn on chosen T03–T10 and T20 as **merge blockers**: SAST, DAST vs shop Route, image scan, SBOM, Cosign, Dockerfile/YAML. Coverage artifacts for the languages we actually build.
+- **Week 4:** Keep gates on during chaos so “emergency hotfix” does not skip scanning. Help Sibi if policy (T12) needs a CI `kyverno apply --policy-report` check.
+- **Tool votes you should drive:** T02, T03, T04, T05, T06, T07, T08, T09, T10, T20.
+
+### Umesh — what you can do
+
+You own **the shop going live from Git**. If it is not in Argo (or Flux), it does not exist.
+
+- **Now:** Pick T01 (GitOps flavor) with Srikanth. Create `gitops/root/` and `gitops/apps/otel-demo/` skeletons. On a laptop, `helm template` the [OTel Demo chart](https://opentelemetry.io/docs/demo/kubernetes-deployment/) so week 2 is not the first time you see the manifests.
+- **Week 1:** Get `oc` access from Balaji. Create the `otel-demo` project. Confirm default StorageClass before you need PVCs.
+- **Week 2:** Install GitOps operator. App-of-apps. Render demo to Kustomize. OpenShift **Route** (not LoadBalancer). Loadgen traffic. HPA + PDBs. Dev auto-sync / staging manual. Pair Sibi on SCC. This is your week.
+- **Week 3:** Keep the app healthy while Sibi adds NetworkPolicy and collectors (your Services must still route).
+- **Week 4:** Hold SLOs during chaos; feature-flag failures in the demo are yours to interpret with Sibi.
+- **Tool votes you should drive:** T01, D017, T21 (app HPA), T22 if mesh stretch happens.
+
+### Pairing (do not silo)
+
+| When | Pair | Why |
 |---|---|---|
-| Balaji BR | [balajirajmohan](https://github.com/balajirajmohan) | Platform / AWS, tracker owner |
-| Srikanth K | — | Scope, platform |
-| Vignesh | [deepan011](https://github.com/deepan011) | CI + supply chain |
-| Umesh | [umeshkumaarjj-dev](https://github.com/umeshkumaarjj-dev) | GitOps + app |
+| Week 1 install | Balaji + Srikanth | Infra + “is this OKD healthy?” |
+| Week 2 SCC/Routes | Umesh + Sibi | Helm vs OKD is the classic failure |
+| Week 3 gates | Vignesh + Sibi | CI findings vs cluster policy must match |
+| Week 4 RCA | Sibi + Srikanth | Numbers + written recommendation |
+| Tracker | Balaji + whoever merged | README **Where we are** in the same PR |
 
 ---
+
 
 ## Decision log
 
@@ -104,6 +170,7 @@ Scope from the 2026-09-09 working session and Confluence write-up **OKD - Opensh
 | D025 | 2026-09-09 | Native-first | Prefer OKD built-ins; add CNCF only at seams | Locked | Balaji | Otherwise we are not evaluating OKD | Replacing Routes, CMO, Machine API, OAuth |
 | D026 | 2026-09-09 | Tracker | This README is the decision + status system | Locked | Balaji | Team asked for tracking in the README | Side spreadsheet / Notion as SoT |
 | D027 | 2026-09-09 | Cost posture | **Open** — 24/7 vs destroy-at-night (~$1.4k–2k/month if left up) | Open | Team | Control plane is not cheap | Silent always-on with no budget alarm |
+| D028 | 2026-09-09 | Ownership | Lanes: Srikanth scope/assessment; Balaji AWS/tracker; Sibi sec+o11y+chaos; Vignesh CI/supply chain; Umesh GitOps+app | Proposed | Balaji | Five people, one lane each; see Team section | Everyone on the installer |
 
 ---
 
@@ -438,7 +505,7 @@ Demo already has **Envoy frontend-proxy**. Mesh is not required to complete week
 
 **Goal:** Repo, access, blockers, locked decisions. No cluster yet.
 
-- [ ] GitHub collaborators added (`deepan011`, `umeshkumaarjj-dev`)
+- [ ] GitHub collaborators added (`srikanth-karthi`, `sibisaravanan`, `deepan011`, `umeshkumaarjj-dev`)
 - [ ] Route 53 zone exists and NS is delegated (D012)
 - [ ] AWS account, region (D013), and quotas confirmed
 - [ ] Cost posture decided (D027)
