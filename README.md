@@ -68,7 +68,7 @@ These are proposed ownership lanes so five people are not all on the installer. 
 |---|---|---|---|
 | Srikanth K | [srikanth-karthi](https://github.com/srikanth-karthi) | Scope, OKD architecture, Operator catalog, final assessment | Balaji |
 | Balaji BR | [balajirajmohan](https://github.com/balajirajmohan) | AWS, IPI install, DNS, IAM, this README tracker | Srikanth |
-| Sibi | [sibisaravanan](https://github.com/sibisaravanan) | Security (SCC, policy, runtime) + observability + chaos | Vignesh (sec), Umesh (o11y) |
+| Sibi | [sibisaravanan](https://github.com/sibisaravanan) | Platform hardening: `gitops/platform/`, SCC, policy, runtime, o11y, SLOs, TLS, multi-tenancy, chaos, AI RCA | Vignesh (CI side), Umesh (app) |
 | Vignesh | [deepan011](https://github.com/deepan011) | CI, SAST/DAST, image/SBOM/sign, git secrets, coverage | Sibi |
 | Umesh | [umeshkumaarjj-dev](https://github.com/umeshkumaarjj-dev) | GitOps, OTel Demo, Routes, app HPA/PDB | Sibi (SCC), Balaji (DNS/LB) |
 
@@ -93,14 +93,48 @@ You own the **cluster existing** and the **tracker staying true**.
 
 ### Sibi — what you can do
 
-You own **week 3 and week 4**: make the platform look like a production security/o11y/resilience story.
+You are the **strongest IC on this POC**. You do not wait for week 3. You own the platform *around* the shop: everything that makes OKD look like a place a bank could land. Umesh ships the app; you make the cluster refuse to be unsafe and prove it can heal.
 
-- **Now:** Pick T11–T16, T18, T19 (secrets runtime, policy, Falco/Tetragon, logs, traces, chaos, AI RCA). You can draft Kyverno (or Gatekeeper) policies as YAML in `security/policies/` before a cluster exists.
-- **Week 1:** Learn SCC vs PSA vs NetworkPolicy on this cluster; help Balaji enable user-workload monitoring. Do not wait until week 3 to touch `oc`.
-- **Week 2:** Pair with Umesh on every demo pod that needs `anyuid`/privileged. Write the SCC audit table. Default-deny NetworkPolicy on `otel-demo`.
-- **Week 3:** Install chosen policy + runtime tools. Loki/Vector (or chosen T14). OTel Collector → chosen T15. Dashboards + Alertmanager. You are the person who can show **one checkout failure in metrics, logs, and a trace**.
-- **Week 4:** Run chosen chaos tool (T18). Capture baseline SLOs with Umesh’s loadgen. k8sgpt/HolmesGPT (T19) vs your own RCA. Hand Srikanth the MTTD/MTTR numbers.
-- **Tool votes you should drive:** T11, T12, T13, T14, T15, T18, T19.
+#### Core (non-negotiable)
+
+- **Now:** Lock T11–T16, T18, T19, T22. Scaffold `gitops/platform/` (policy, logging, collector, chaos — empty CRs are fine). Draft Kyverno/Gatekeeper policies in `security/policies/` before AWS exists. Write `docs/scc-model.md` from OKD docs (restricted-v2, anyuid, nonroot, privileged) so week 2 is not guesswork.
+- **Week 1 (start day the cluster is up, not week 3):** `oc` daily. Enable user-workload monitoring. Inventory SCCs and default NetworkPolicy behavior. Cluster Monitoring Grafana: what is native vs missing. ResourceQuotas + LimitRanges on a sandbox project. Pair Balaji on registry/storage so PVCs are real.
+- **Week 2:** Pair Umesh on **every** demo pod SCC. You own the audit table (`docs/scc-audit.md`) — service, SCC, why, can we drop it. Default-deny + allowlist NetworkPolicies. ExternalSecrets (or chosen T11) *platform* side: ClusterSecretStore, IAM. TLS: cert-manager + re-encrypt Route on the shop (Umesh consumes it).
+- **Week 3:** You install and GitOps: policy engine, Falco (custom rules for shell-in-container, unexpected K8s API from a demo pod), Loki/Vector, production-shaped OTel Collector (redact, tail sampling, spanmetrics — not the demo default). One checkout failure in **metrics + logs + trace**. Alertmanager routed. SLO recording rules (p95, error rate) against loadgen.
+- **Week 4:** Chaos is yours end-to-end: experiment catalog, GameDay script, MTTD/MTTR spreadsheet. k8sgpt vs your RCA; HolmesGPT only if k8sgpt is too shallow. Hand Srikanth numbers, not vibes.
+
+#### Extra load (expected of you — do not skip)
+
+This is the work that uses the extra capacity. Each item is a real production question the assessment needs.
+
+| Extra | Deliverable | Why it is hard |
+|---|---|---|
+| E1 Multi-tenancy | Two projects (`otel-demo`, `otel-demo-team-b` or `platform-sandbox`): quota, limit range, NetworkPolicy isolation, who can `oc new-project` | OKD Projects ≠ Namespaces; this is the enterprise story |
+| E2 Admission vs CI | Kyverno `verifyImages` (Cosign) so an unsigned image **cannot schedule** even if Vignesh’s GHA is bypassed | Closes the “I docker pushed to the node” hole |
+| E3 Collector as a product | OTel Collector config in Git: OTLP in, redaction, spanmetrics, exporters to CMO + T14 + T15. Document drop rates | Demo chart Collector is not production |
+| E4 Falco rules for this app | Custom rules: write to `/etc`, k8s secret list from a workload SA, unexpected outbound | Default rules are generic; you can do better |
+| E5 SLOs + error budget | Grafana dashboard + Alertmanager: shop availability, checkout latency, burn rate. Used as chaos steady-state | Week 4 is science only if you defined green first |
+| E6 MachineHealthCheck + PDB reality | Kill a worker / NotReady; show Machine API replace vs app PDB. Write what MachineAutoscaler did | Balaji owns scaling objects; you own the **experiment and write-up** |
+| E7 DR note | etcd backup / restore drill **or** documented why we skipped and what prod would use (OADP) | Assessment without DR is incomplete |
+| E8 OKD vs EKS/vanilla | `docs/okd-delta.md`: SCC, Routes, CMO, MCO, what broke the Helm chart | Srikanth’s rec needs your evidence |
+| E9 Platform GitOps | All of the above as Argo/Flux apps under `gitops/platform/` — no click-ops Operators | If it is not in Git, you did not finish |
+
+#### Stretch (if the above is done and you are still bored)
+
+- **S1** AWS STS + `ccoctl` with Balaji (least-privilege CCO) — production IAM finding
+- **S2** Tetragon: one **detect** policy, then one carefully scoped **enforce** (SIGKILL on a lab namespace only)
+- **S3** KEDA ScaledObject on Kafka lag (demo has Kafka) vs HPA
+- **S4** OpenShift Service Mesh mTLS on 2–3 demo services (not the whole shop)
+- **S5** ACS/StackRox **or** Compliance Operator gap analysis (install if light; else paper)
+- **S6** Argo Rollouts canary on frontend — only if T01 is Argo
+- **S7** AdminNetworkPolicy / baseline deny at cluster scope
+- **S8** Load beyond Locust: k6 or kube-burner against the Route; report saturation vs worker RAM
+
+#### Tool votes you should drive
+
+T11, T12, T13, T14, T15, T16 (user-workload), T18, T19, T21 (MHC experiments), T22, A2–A5.
+
+Do not take Umesh’s app-of-apps or Vignesh’s GHA. Take the hard platform layer those two will otherwise skate past.
 
 ### Vignesh — what you can do
 
@@ -109,7 +143,7 @@ You own **laptop → PR → merge** security. The cluster should refuse unsigned
 - **Now:** Add `pre-commit` (gitleaks, hadolint, kubeconform). Scaffold `.github/workflows/` even before AWS exists — Actions do not need the cluster. First history scan of the repo.
 - **Week 1:** Keep CI green on the Terraform/`install-config` template PRs (Checkov on `infra/`).
 - **Week 2:** No secret YAML in `gitops/`. Wire chosen T11 from the app side with Umesh (ExternalSecret refs, not values).
-- **Week 3:** Turn on chosen T03–T10 and T20 as **merge blockers**: SAST, DAST vs shop Route, image scan, SBOM, Cosign, Dockerfile/YAML. Coverage artifacts for the languages we actually build.
+- **Week 3:** Turn on chosen T03–T10 and T20 as **merge blockers**. Cosign sign is yours; Sibi **enforces** unsigned images at admission (E2). Coverage artifacts for the languages we actually build.
 - **Week 4:** Keep gates on during chaos so “emergency hotfix” does not skip scanning. Help Sibi if policy (T12) needs a CI `kyverno apply --policy-report` check.
 - **Tool votes you should drive:** T02, T03, T04, T05, T06, T07, T08, T09, T10, T20.
 
@@ -119,7 +153,7 @@ You own **the shop going live from Git**. If it is not in Argo (or Flux), it doe
 
 - **Now:** Pick T01 (GitOps flavor) with Srikanth. Create `gitops/root/` and `gitops/apps/otel-demo/` skeletons. On a laptop, `helm template` the [OTel Demo chart](https://opentelemetry.io/docs/demo/kubernetes-deployment/) so week 2 is not the first time you see the manifests.
 - **Week 1:** Get `oc` access from Balaji. Create the `otel-demo` project. Confirm default StorageClass before you need PVCs.
-- **Week 2:** Install GitOps operator. App-of-apps. Render demo to Kustomize. OpenShift **Route** (not LoadBalancer). Loadgen traffic. HPA + PDBs. Dev auto-sync / staging manual. Pair Sibi on SCC. This is your week.
+- **Week 2:** Install GitOps operator. App-of-apps **for the shop** (`gitops/apps/`). Render demo to Kustomize. OpenShift **Route** (not LoadBalancer). Loadgen traffic. HPA + PDBs. Dev auto-sync / staging manual. Pair Sibi on SCC — he owns the audit; you own a running store. Sibi owns `gitops/platform/`.
 - **Week 3:** Keep the app healthy while Sibi adds NetworkPolicy and collectors (your Services must still route).
 - **Week 4:** Hold SLOs during chaos; feature-flag failures in the demo are yours to interpret with Sibi.
 - **Tool votes you should drive:** T01, D017, T21 (app HPA), T22 if mesh stretch happens.
@@ -129,9 +163,10 @@ You own **the shop going live from Git**. If it is not in Argo (or Flux), it doe
 | When | Pair | Why |
 |---|---|---|
 | Week 1 install | Balaji + Srikanth | Infra + “is this OKD healthy?” |
-| Week 2 SCC/Routes | Umesh + Sibi | Helm vs OKD is the classic failure |
-| Week 3 gates | Vignesh + Sibi | CI findings vs cluster policy must match |
-| Week 4 RCA | Sibi + Srikanth | Numbers + written recommendation |
+| Week 1 platform | Sibi + Balaji | Monitoring, SCC inventory, storage — Sibi does not sit idle |
+| Week 2 SCC/Routes/TLS | Umesh + Sibi | Helm vs OKD; Sibi owns audit + cert-manager |
+| Week 3 gates | Vignesh + Sibi | CI signs; cluster refuses unsigned |
+| Week 4 GameDay | Sibi leads; Umesh (SLOs), Srikanth (rec), Balaji (nodes) | Chaos is a team sport with one conductor |
 | Tracker | Balaji + whoever merged | README **Where we are** in the same PR |
 
 ---
@@ -170,7 +205,7 @@ Scope from the 2026-09-09 working session and Confluence write-up **OKD - Opensh
 | D025 | 2026-09-09 | Native-first | Prefer OKD built-ins; add CNCF only at seams | Locked | Balaji | Otherwise we are not evaluating OKD | Replacing Routes, CMO, Machine API, OAuth |
 | D026 | 2026-09-09 | Tracker | This README is the decision + status system | Locked | Balaji | Team asked for tracking in the README | Side spreadsheet / Notion as SoT |
 | D027 | 2026-09-09 | Cost posture | **Open** — 24/7 vs destroy-at-night (~$1.4k–2k/month if left up) | Open | Team | Control plane is not cheap | Silent always-on with no budget alarm |
-| D028 | 2026-09-09 | Ownership | Lanes: Srikanth scope/assessment; Balaji AWS/tracker; Sibi sec+o11y+chaos; Vignesh CI/supply chain; Umesh GitOps+app | Proposed | Balaji | Five people, one lane each; see Team section | Everyone on the installer |
+| D028 | 2026-09-09 | Ownership | Lanes: Srikanth scope/assessment; Balaji AWS/tracker; Sibi platform hardening (`gitops/platform/`, sec, o11y, SLOs, chaos) + extras E1–E9; Vignesh CI; Umesh GitOps+app | Proposed | Balaji | Sibi is the strongest IC — extra load is expected, not stretch-only | Everyone on the installer; Sibi idle until week 3 |
 | D029 | 2026-09-09 | AI posture | Do **A1 + A2 + A3** only. A4 optional. A5–A8 overkill for this POC | Proposed | Srikanth | Week 4 already names AI RCA; more AI hides the OKD eval | AI on every layer |
 
 ---
