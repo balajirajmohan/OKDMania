@@ -1,0 +1,53 @@
+# ===========================================================================
+# Copy to terraform.tfvars and edit. terraform.tfvars is GITIGNORED.
+# `cp terraform.tfvars.example terraform.tfvars`
+# ===========================================================================
+
+aws_region = "us-east-1"
+
+# --- Networking (defaults are fine for the sandbox) ---------------------
+vpc_cidr            = "10.50.0.0/16"
+azs                 = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs = ["10.50.0.0/24", "10.50.1.0/24"]
+
+# Leave empty for the public-only sandbox. To grow into a private tier later:
+#   private_subnet_cidrs = ["10.50.10.0/24", "10.50.11.0/24"]
+#   enable_nat_gateway   = true   # ~$32/mo - only when you need private egress
+private_subnet_cidrs = []
+enable_nat_gateway   = false
+
+# --- Access control (REQUIRED) --------------------------------------
+# Your public IP /32. Find it: curl -s https://checkip.amazonaws.com
+admin_cidrs = ["203.0.113.10/32"]
+
+# Who may hit the OKD API (6443). Empty = same as admin_cidrs.
+cluster_api_cidrs = []
+
+# Who may hit app HTTP/HTTPS (80/443). Default is the internet so demo apps
+# are reachable; tighten for anything sensitive.
+apps_ingress_cidrs = ["0.0.0.0/0"]
+
+# --- AMIs -----------------------------------------------------------
+# REQUIRED. Fedora Cloud Base AMI for this region (master + worker).
+# This account's SCP blocks ec2:DescribeImages, so no data source - see the
+# variable description in variables.tf for how to find the current ID.
+fedora_ami_id = "ami-xxxxxxxxxxxxxxxxx"
+
+# Ubuntu 24.04: leave "" to auto-resolve from the Canonical SSM parameter.
+ubuntu_ami_id = ""
+
+# --- Instances -----------------------------------------------------
+master_instance_type  = "m5.xlarge"
+worker_instance_type  = "t3.xlarge"
+ansible_instance_type = "t3.xlarge"
+runner_instance_type  = "t3.xlarge"
+
+# --- Key pair ----------------------------------------------------
+# Run infra/aws/sandbox/scripts/generate-key.sh first.
+key_name            = "okd-project"
+public_key_path     = "../../scripts/okd-project.pem.pub"
+ssh_private_key_file = "~/.ssh/okd-project.pem"
+
+# --- Optional ---------------------------------------------------
+create_instance_profile    = false   # true = SSM Session Manager on the nodes
+generate_ansible_inventory = true

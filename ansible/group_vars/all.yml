@@ -1,0 +1,17 @@
+---
+# Applied to every host. Keep secrets OUT of here - use ansible-vault, AWS
+# Secrets Manager, or SSM Parameter Store for anything sensitive (spec sec 22).
+
+# Cloud image default users (also set per-host in the inventory)
+# fedora -> Fedora Cloud, ubuntu -> Ubuntu
+
+timezone: UTC
+ntp_servers:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+
+# Where the SSH private key lives on the machine running Ansible.
+ansible_ssh_private_key_file: "~/.ssh/okd-project.pem"
+
+# Filled from Terraform outputs when you templatize further, e.g.
+#   okd_api_vip: "{{ hostvars['okd-master'].private_ip }}"

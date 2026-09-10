@@ -1,0 +1,48 @@
+#cloud-config
+# ===========================================================================
+# Fedora node (OKD-master / OKD-worker) - BASIC OS PREP ONLY  (spec section 16)
+# ===========================================================================
+# This does NOT install OKD. OKD 4.x nodes run Fedora CoreOS + Ignition and are
+# built by `openshift-install`; a plain Fedora Cloud VM cannot be turned into an
+# OKD 4.x master/worker by Ansible. These boxes are a learning / tooling
+# surface. See docs/sandbox-findings.md.
+#
+# Real OKD prerequisite configuration (kernel params, DNS, chrony policy,
+# firewall, SELinux booleans, etc.) belongs in Ansible - Phase 2.
+# ===========================================================================
+
+hostname: ${hostname}
+fqdn: ${hostname}.${internal_domain}
+prefer_fqdn_over_hostname: true
+manage_etc_hosts: true
+
+package_update: true
+package_upgrade: false   # keep first boot fast; patch via Ansible later
+
+packages:
+  - chrony
+  - git
+  - curl
+  - wget
+  - tar
+  - bind-utils          # dig / nslookup - you WILL need these for OKD DNS
+  - jq
+  - htop
+  - tcpdump
+  - traceroute
+  - policycoreutils-python-utils   # semanage - handy when debugging SELinux
+
+write_files:
+  - path: /etc/profile.d/okd-sandbox.sh
+    permissions: "0644"
+    content: |
+      # OKDMania sandbox node - ${hostname} (role: ${role})
+      # NOT an OKD cluster node. See repo docs/sandbox-findings.md
+      export OKD_SANDBOX_ROLE=${role}
+
+runcmd:
+  - [ systemctl, enable, --now, chronyd ]
+  - [ hostnamectl, set-hostname, "${hostname}" ]
+  - [ bash, -c, "echo 'OKDMania sandbox ${role} node ready' > /etc/motd" ]
+
+final_message: "cloud-init done: ${hostname} (${role}) up after $UPTIME s"

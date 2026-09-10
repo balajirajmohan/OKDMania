@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# OKDMania .gitignore
+#
+# Purpose: keep Terraform state, working directories, secret-bearing variable
+# files, generated private keys, and local environment files OUT of git.
+# See infra/aws/sandbox/README.md ("Git hygiene") for the rationale and for
+# why a single root .gitignore is enough (no per-module Terraform ignore file).
+# ---------------------------------------------------------------------------
+
+# --- Terraform working directories & plugins -------------------------------
+**/.terraform/
+.terraform.tfstate.lock.info
+
+# --- Terraform state (never commit - may contain secrets / IPs) ------------
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# --- Terraform crash logs -------------------------------------------------
+crash.log
+crash.*.log
+
+# --- Terraform plan output ----------------------------------------------
+*.tfplan
+*.tfplan.*
+
+# --- Variable files (may contain admin CIDRs, account IDs, AMI choices) ---
+*.tfvars
+*.tfvars.json
+# ...but DO commit the templates:
+!*.tfvars.example
+!terraform.tfvars.example
+
+# --- Terraform override files (local-only experiments) --------------------
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# --- Terraform CLI config -------------------------------------------------
+.terraformrc
+terraform.rc
+
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored - commit it so
+# provider versions are reproducible across the team.
+
+# --- SSH keys / TLS material -------------------------------------------
+okd-project.pem
+okd-project.pem.pub
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# --- Local environment / credentials ------------------------------------
+.env
+.env.*
+*.auto.tfvars
+aws.json
+credentials
+
+# --- Generated Ansible inventory (real IPs - regenerate from TF outputs) --
+ansible/inventory/hosts.ini
+# ...but DO commit the example:
+!ansible/inventory/hosts.ini.example
+
+# --- Editor / OS noise --------------------------------------------------
+.DS_Store
+*.swp
+.idea/
+.vscode/
