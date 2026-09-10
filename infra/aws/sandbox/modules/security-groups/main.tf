@@ -126,7 +126,7 @@ resource "aws_vpc_security_group_ingress_rule" "master_from_ansible" {
 # worker: from master, worker (self), ansible
 resource "aws_vpc_security_group_ingress_rule" "worker_from_master" {
   security_group_id            = aws_security_group.worker.id
-  description                  = "All control-plane -> node traffic (machine-config, kubelet, SDN)"
+  description                  = "All control-plane to node traffic (machine-config, kubelet, SDN)"
   referenced_security_group_id = aws_security_group.master.id
   ip_protocol                  = "-1"
 }

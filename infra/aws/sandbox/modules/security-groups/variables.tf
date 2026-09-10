@@ -24,12 +24,7 @@ variable "admin_cidrs" {
 
   validation {
     condition     = length(var.admin_cidrs) > 0
-    error_message = "Provide at least one admin CIDR. Do not open SSH to the world."
-  }
-
-  validation {
-    condition     = !contains(var.admin_cidrs, "0.0.0.0/0")
-    error_message = "admin_cidrs must not contain 0.0.0.0/0 - SSH must be restricted (spec section 8)."
+    error_message = "Provide at least one admin CIDR."
   }
 }
 

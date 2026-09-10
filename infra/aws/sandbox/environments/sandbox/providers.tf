@@ -5,6 +5,14 @@ provider "aws" {
   default_tags {
     tags = local.common_tags
   }
+
+  # The account auto-applies governance tags (SSO "Owner", Cloud Custodian
+  # "c7n-*"). They are not in our config, so Terraform would try to strip them
+  # on every apply and Custodian would re-add them - a permanent no-op diff.
+  ignore_tags {
+    keys         = ["Owner"]
+    key_prefixes = ["c7n-"]
+  }
 }
 
 locals {
