@@ -1,7 +1,9 @@
 ---
 # SSM is the primary transport - no inbound SSH needed for Ansible.
+# Fully-qualified plugin name: the short "aws_ssm" name isn't reliably
+# resolvable once the plugin lives in a collection.
 # https://docs.ansible.com/projects/ansible/latest/collections/amazon/aws/aws_ssm_connection.html
-ansible_connection: aws_ssm
+ansible_connection: community.aws.aws_ssm
 ansible_aws_ssm_region: us-east-1
 
 # Only needed if a playbook copies files to/from a host (aws_ssm uses S3 or
