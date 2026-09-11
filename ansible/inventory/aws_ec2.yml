@@ -1,0 +1,27 @@
+# ===========================================================================
+# Dynamic inventory - discovers OKD-Project EC2 instances by tag, no
+# hand-maintained IPs. Requires the amazon.aws collection (requirements.yml).
+# ===========================================================================
+plugin: amazon.aws.aws_ec2
+
+regions:
+  - us-east-1
+
+filters:
+  tag:Project: OKD-Project
+  instance-state-name: running
+
+hostnames:
+  - tag:Name
+
+# ansible_host = instance ID: the aws_ssm connection plugin connects by
+# instance ID, not IP - see group_vars/all.yml for the connection settings.
+compose:
+  ansible_host: instance_id
+  private_ip: private_ip_address
+
+groups:
+  masters: "'Master' in (tags.Role | default(''))"
+  workers: "'Worker' in (tags.Role | default(''))"
+  ansible: "'Ansible' in (tags.Role | default(''))"
+  runner: "'Runner' in (tags.Role | default(''))"

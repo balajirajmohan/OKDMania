@@ -1,0 +1,59 @@
+#cloud-config
+# ===========================================================================
+# okd-ansible - Ubuntu Ansible control node  (spec sections 4 & 16)
+# ===========================================================================
+# Installs the tooling needed to run Ansible against the OKD nodes and to drive
+# the OKD install workflow. NO private keys are baked in here - copy
+# okd-project.pem to ~/.ssh/ on this box yourself after it boots.
+# ===========================================================================
+
+hostname: ${hostname}
+fqdn: ${hostname}.${internal_domain}
+prefer_fqdn_over_hostname: true
+manage_etc_hosts: true
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - ansible
+  - git
+  - python3
+  - python3-pip
+  - python3-venv
+  - curl
+  - wget
+  - unzip
+  - jq
+  - openssh-client
+
+write_files:
+  - path: /etc/profile.d/okd-project.sh
+    permissions: "0644"
+    content: |
+      # OKDMania Ansible control node
+      export OKD_ROLE=ansible
+      alias ap='ansible-playbook'
+  - path: /home/ubuntu/.ssh/config
+    permissions: "0600"
+    owner: "ubuntu:ubuntu"
+    defer: true
+    content: |
+      # Copy okd-project.pem here as ~/.ssh/okd-project.pem (chmod 400) then
+      # `terraform output` on your laptop gives you the node IPs for the
+      # inventory. This block just sets sane defaults for SSH to the nodes.
+      Host 10.50.* okd-master okd-worker
+          User fedora
+          IdentityFile ~/.ssh/okd-project.pem
+          StrictHostKeyChecking accept-new
+          UserKnownHostsFile ~/.ssh/known_hosts
+
+runcmd:
+  - [ hostnamectl, set-hostname, "${hostname}" ]
+  # AWS CLI v2 from the official bundle (the apt 'awscli' package is old / v1)
+  - [ bash, -c, "cd /tmp && curl -fsSL 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o awscliv2.zip && unzip -q awscliv2.zip && ./aws/install && rm -rf awscliv2.zip aws" ]
+  - [ bash, -c, "install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.ssh" ]
+  - [ bash, -c, "mkdir -p /home/ubuntu/okd && chown ubuntu:ubuntu /home/ubuntu/okd" ]
+  - [ bash, -c, "echo 'OKDMania Ansible control node ready' > /etc/motd" ]
+
+final_message: "cloud-init done: ${hostname} (ansible) up after $UPTIME s"

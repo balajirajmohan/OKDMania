@@ -1,4 +1,0 @@
----
-# OKD worker / compute host vars. Placeholders for Phase 2 OS prep.
-node_role: worker
-okd_required_ports_tcp: [10250, 80, 443, 1936]

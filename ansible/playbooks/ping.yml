@@ -1,18 +1,9 @@
 ---
-# Connectivity check. Run after `terraform apply` + inventory generation:
-#   cd ansible && ansible-playbook playbooks/ping.yml
-- name: Verify SSH reachability to every sandbox host
+# Connectivity check over SSM. Run after `terraform apply`:
+#   ansible-playbook -i inventory/aws_ec2.yml playbooks/ping.yml
+- name: Verify SSM connectivity to every OKD-Project node
   hosts: all
   gather_facts: false
   tasks:
-    - name: Ping
+    - name: ping
       ansible.builtin.ping:
-
-    - name: Show which user / python we landed as
-      ansible.builtin.raw: "id -un; python3 --version"
-      changed_when: false
-      register: whoami
-
-    - name: Report
-      ansible.builtin.debug:
-        msg: "{{ inventory_hostname }} ({{ ansible_host }}) -> {{ whoami.stdout_lines }}"

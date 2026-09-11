@@ -1,0 +1,57 @@
+#cloud-config
+# ===========================================================================
+# okd-runner - Ubuntu CI/CD runner host  (spec sections 4, 16 & 19)
+# ===========================================================================
+# Prepares the base OS + dependencies for a future CI/CD runner. It does NOT
+# register with GitHub / GitLab / Jenkins - that needs a token, and tokens must
+# never live in Terraform or cloud-init. Register manually later.
+# ===========================================================================
+
+hostname: ${hostname}
+fqdn: ${hostname}.${internal_domain}
+prefer_fqdn_over_hostname: true
+manage_etc_hosts: true
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - git
+  - python3
+  - python3-pip
+  - curl
+  - wget
+  - jq
+  - unzip
+  - openssh-client
+  - ca-certificates
+  - gnupg
+
+write_files:
+  - path: /etc/profile.d/okd-project.sh
+    permissions: "0644"
+    content: |
+      # OKDMania CI/CD runner host
+      export OKD_ROLE=runner
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      { "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+
+runcmd:
+  - [ hostnamectl, set-hostname, "${hostname}" ]
+  # Docker CE from Docker's official apt repo
+  - [ bash, -c, "install -m 0755 -d /etc/apt/keyrings" ]
+  - [ bash, -c, "curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc" ]
+  - [ bash, -c, "echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable\" > /etc/apt/sources.list.d/docker.list" ]
+  - [ bash, -c, "apt-get update -y" ]
+  - [ bash, -c, "DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" ]
+  - [ bash, -c, "usermod -aG docker ubuntu" ]
+  - [ systemctl, enable, --now, docker ]
+  # AWS CLI v2
+  - [ bash, -c, "cd /tmp && curl -fsSL 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o awscliv2.zip && unzip -q awscliv2.zip && ./aws/install && rm -rf awscliv2.zip aws" ]
+  # kubectl + oc (OpenShift CLI) - stable, for talking to a cluster later
+  - [ bash, -c, "cd /tmp && curl -fsSL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz -o oc.tgz && tar -xzf oc.tgz -C /usr/local/bin oc kubectl && rm -f oc.tgz" ]
+  - [ bash, -c, "echo 'OKDMania CI/CD runner host ready (not registered)' > /etc/motd" ]
+
+final_message: "cloud-init done: ${hostname} (runner) up after $UPTIME s"

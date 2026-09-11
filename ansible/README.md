@@ -1,86 +1,46 @@
-# ansible/ — configuration management for the OKD sandbox
+# Ansible — OKD-Project configuration management
 
-This directory is the **Phase 2** surface (see the root `README.md` roadmap).
-Phase 1 (Terraform) builds the machines; Ansible configures them from here.
+Configures the EC2 instances that `infra/aws/` provisions. Terraform owns
+infrastructure; Ansible owns everything on top of it (OS packages, users,
+OKD tooling, application/runtime config).
 
-```
-ansible/
-├── ansible.cfg
-├── inventory/
-│   ├── hosts.ini            # GENERATED from Terraform outputs - gitignored
-│   └── hosts.ini.example    # committed template
-├── group_vars/
-│   ├── all.yml
-│   ├── okd_masters.yml
-│   └── okd_workers.yml
-└── playbooks/
-    ├── ping.yml             # connectivity check
-    └── os-prep.yml          # Phase 2 baseline OS prep (skeleton)
-```
+## Connection: AWS Systems Manager
 
-## Inventory is generated, never hand-written (spec section 18)
+Every instance gets an IAM instance profile with `AmazonSSMManagedInstanceCore`
+(see `infra/aws/modules/iam-instance-profile`) and registers with SSM on
+boot. Ansible connects through the
+[`aws_ssm` connection plugin](https://docs.ansible.com/projects/ansible/latest/collections/amazon/aws/aws_ssm_connection.html)
+instead of SSH — no inbound port 22 needed for automation. SSH stays open to
+`admin_cidrs` only, as a human break-glass path.
 
-The four instances get **dynamic** public IPs. Hard-coding them into a committed
-file rots immediately and leaks addresses. Instead the inventory is built from
-Terraform outputs, two ways:
-
-| Method | Command | When |
-|---|---|---|
-| Terraform-native | `terraform apply` in `infra/aws/sandbox/environments/sandbox` | every apply — `inventory.tf` writes repo-root `ansible/inventory/hosts.ini` (`ansible_inventory_path`, 5 levels up) |
-| Script | `infra/aws/sandbox/scripts/gen-inventory.sh` | refresh without an apply (e.g. after stop/start changed the IPs) |
-
-Both produce the same file. It matches `hosts.ini.example` in structure:
-
-```ini
-[okd_masters]
-okd-master ansible_host=<public-ip> private_ip=<vpc-ip> ansible_user=fedora
-
-[okd_workers]
-okd-worker ansible_host=<public-ip> private_ip=<vpc-ip> ansible_user=fedora
-
-[okd_cluster:children]
-okd_masters
-okd_workers
-```
-
-The Terraform outputs that feed it (`terraform output`):
-`okd_master_public_ip`, `okd_master_private_ip`, `okd_worker_public_ip`,
-`okd_worker_private_ip`, `okd_ansible_*`, `okd_runner_*`.
-
-## Running Ansible
-
-### From your laptop
+## Setup
 
 ```bash
-# 1. keys + infra
-cd infra/aws/sandbox/scripts && ./generate-key.sh
-cp okd-project.pem ~/.ssh/ && chmod 400 ~/.ssh/okd-project.pem
-cd ../environments/sandbox && terraform apply    # writes the inventory
+cd ansible
+ansible-galaxy collection install -r requirements.yml
+aws sso login --profile <your-profile>   # or your usual AWS auth
+export AWS_PROFILE=<your-profile>
 
-# 2. Ansible  (repo-root/ansible, 5 levels up from environments/sandbox)
-cd ../../../../../ansible
-ansible-playbook playbooks/ping.yml
-ansible-playbook playbooks/os-prep.yml --limit okd_cluster
+ansible-inventory -i inventory/aws_ec2.yml --graph
+ansible-playbook -i inventory/aws_ec2.yml playbooks/ping.yml
 ```
 
-### From the okd-ansible box (the real control node)
+## Inventory
 
-```bash
-# copy the key and this dir up to the box
-scp -i ~/.ssh/okd-project.pem ~/.ssh/okd-project.pem ubuntu@<ansible_public_ip>:~/.ssh/
-rsync -e "ssh -i ~/.ssh/okd-project.pem" -a ansible/ ubuntu@<ansible_public_ip>:~/okd/ansible/
-ssh -i ~/.ssh/okd-project.pem ubuntu@<ansible_public_ip>
-cd ~/okd/ansible && ansible-playbook playbooks/ping.yml
-```
+- `inventory/aws_ec2.yml` — **dynamic**, tag-based (`amazon.aws.aws_ec2`
+  plugin). Filters on `tag:Project = OKD-Project`, groups hosts by their
+  `Role` tag into `masters`, `workers`, `ansible`, `runner`. New instances
+  Terraform creates are picked up automatically.
+- `inventory/hosts.ini` — **static**, SSH-based fallback, regenerated on
+  every `terraform apply` (gitignored; see `hosts.ini.example`). Useful if
+  SSM is unavailable. The worker has no public IP, so this file addresses it
+  by private IP — it only works from a host inside the VPC (e.g. `okd-ansible`
+  or over a VPN).
 
-The `okd-ansible` cloud-init already installed `ansible`, `git`, `python3`,
-`awscli`, `jq`, `openssh-client`. It uses the `okd-project` key to reach the
-Fedora nodes over their **private** IPs (all four are in the same VPC).
+## Playbooks
 
-## Important: these Fedora boxes are not an OKD cluster
+- `playbooks/ping.yml` — connectivity check over SSM. Run this first after
+  any `terraform apply`.
 
-`os-prep.yml` only does universal OS prep. Turning the nodes into a real OKD 4.x
-cluster is **not** an Ansible job — OKD 4.x uses Fedora CoreOS + Ignition +
-`openshift-install`. See `docs/sandbox-findings.md` and the root `README.md`
-decision log (D031 = AWS UPI). Use this sandbox to get fluent with Ansible,
-`oc`, and `openshift-install` before/while the UPI stack is built.
+Further OS-prep and OKD-toolchain playbooks build on `roles/` as that work
+lands — see the root `README.md` roadmap.

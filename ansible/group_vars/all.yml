@@ -1,17 +1,10 @@
 ---
-# Applied to every host. Keep secrets OUT of here - use ansible-vault, AWS
-# Secrets Manager, or SSM Parameter Store for anything sensitive (spec sec 22).
+# SSM is the primary transport - no inbound SSH needed for Ansible.
+# https://docs.ansible.com/projects/ansible/latest/collections/amazon/aws/aws_ssm_connection.html
+ansible_connection: aws_ssm
+ansible_aws_ssm_region: us-east-1
 
-# Cloud image default users (also set per-host in the inventory)
-# fedora -> Fedora Cloud, ubuntu -> Ubuntu
-
-timezone: UTC
-ntp_servers:
-  - 0.pool.ntp.org
-  - 1.pool.ntp.org
-
-# Where the SSH private key lives on the machine running Ansible.
-ansible_ssh_private_key_file: "~/.ssh/okd-project.pem"
-
-# Filled from Terraform outputs when you templatize further, e.g.
-#   okd_api_vip: "{{ hostvars['okd-master'].private_ip }}"
+# Only needed if a playbook copies files to/from a host (aws_ssm uses S3 or
+# SSM's own file transfer for that). Uncomment and set to an S3 bucket you
+# control if you hit "S3 bucket name not specified" errors.
+# ansible_aws_ssm_bucket_name: okd-ansible-ssm-transfer

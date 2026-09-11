@@ -3,7 +3,7 @@
 #
 # Purpose: keep Terraform state, working directories, secret-bearing variable
 # files, generated private keys, and local environment files OUT of git.
-# See infra/aws/sandbox/README.md ("Git hygiene") for the rationale and for
+# See infra/aws/README.md ("Git hygiene") for the rationale and for
 # why a single root .gitignore is enough (no per-module Terraform ignore file).
 # ---------------------------------------------------------------------------
 
