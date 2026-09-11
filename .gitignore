@@ -1,0 +1,27 @@
+# Terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# OKD / OpenShift installer leftovers
+**/auth/
+*.ign
+**/openshift_install.log
+**/metadata.json
+kubeconfig
+*.kubeconfig
+pull-secret.txt
+pull-secret.json
+
+# OS / editors
+.DS_Store
+.idea/
+*.swp

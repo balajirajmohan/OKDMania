@@ -1,0 +1,18 @@
+# Must match Vignesh's OKD-VPC region (origin/infra).
+aws_region          = "us-east-1"
+github_repo         = "balajirajmohan/OKDMania"
+github_runner_token = "PASTE_TOKEN_FROM_GITHUB_OR_GH_API"
+instance_type       = "t3.large"
+
+# Leave empty to look up VPC Name=OKD-VPC and the first Tier=public subnet.
+vpc_id    = ""
+subnet_id = ""
+
+# false until the smoke workflow is green, then true so UPI Terraform can run here
+attach_administrator_access = false
+
+# Merged with provider default_tags (Project, Component, ManagedBy, Decision, Purpose).
+# Purpose = okdmania is always set and wins over a key of the same name here.
+additional_tags = {
+  # Owner = "balaji"
+}
