@@ -1,7 +1,7 @@
 variable "aws_region" {
   type        = string
-  description = "Same account as OKD. Prefer ap-south-1 if the team is IST (D013)."
-  default     = "ap-south-1"
+  description = "Must be the region of Vignesh's OKD-VPC (us-east-1 on origin/infra)."
+  default     = "us-east-1"
 }
 
 variable "github_repo" {
@@ -37,15 +37,28 @@ variable "name_prefix" {
   default = "okdmania-gha"
 }
 
-variable "vpc_cidr" {
+variable "vpc_id" {
   type        = string
-  description = "Dedicated runner VPC. Leave 10.0.0.0/16 free for the OKD UPI cluster."
-  default     = "10.10.0.0/16"
+  description = "Existing VPC. Leave empty to look up by vpc_name tag (OKD-VPC)."
+  default     = ""
 }
 
-variable "subnet_cidr" {
-  type    = string
-  default = "10.10.1.0/24"
+variable "vpc_name" {
+  type        = string
+  description = "Name tag of Vignesh's VPC when vpc_id is empty."
+  default     = "OKD-VPC"
+}
+
+variable "subnet_id" {
+  type        = string
+  description = "Public subnet in that VPC. Leave empty to pick the first subnet tagged Tier=public."
+  default     = ""
+}
+
+variable "ubuntu_ssm_parameter" {
+  type        = string
+  description = "Canonical Ubuntu AMI SSM parameter (avoids ec2:DescribeImages SCP)."
+  default     = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
 }
 
 variable "runner_labels" {

@@ -1,3 +1,13 @@
+output "vpc_id" {
+  value       = local.vpc_id
+  description = "Shared OKD-VPC this runner landed in."
+}
+
+output "subnet_id" {
+  value       = local.subnet_id
+  description = "Public subnet in OKD-VPC."
+}
+
 output "instance_id" {
   value       = aws_instance.runner.id
   description = "SSM target: aws ssm start-session --target <this>"

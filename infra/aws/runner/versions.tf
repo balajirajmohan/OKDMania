@@ -22,4 +22,10 @@ provider "aws" {
   default_tags {
     tags = local.aws_default_tags
   }
+
+  # Account governance tags (SSO Owner, Cloud Custodian). Do not fight them.
+  ignore_tags {
+    keys         = ["Owner"]
+    key_prefixes = ["c7n-"]
+  }
 }

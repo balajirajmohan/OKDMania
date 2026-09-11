@@ -1,59 +1,37 @@
-data "aws_availability_zones" "available" {
-  state = "available"
-}
+# Join Vignesh's OKD-VPC (origin/infra). Do not create a second VPC.
+# Apply his infra/aws stack first so this lookup succeeds.
 
-resource "aws_vpc" "runner" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_support   = true
-  enable_dns_hostnames = true
+data "aws_vpc" "shared" {
+  count = var.vpc_id == "" ? 1 : 0
 
   tags = {
-    Name = "${var.name_prefix}-vpc"
+    Name = var.vpc_name
   }
 }
 
-resource "aws_internet_gateway" "runner" {
-  vpc_id = aws_vpc.runner.id
+data "aws_subnets" "public" {
+  count = var.subnet_id == "" ? 1 : 0
 
-  tags = {
-    Name = "${var.name_prefix}-igw"
-  }
-}
-
-resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.runner.id
-  cidr_block              = var.subnet_cidr
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.name_prefix}-public"
-  }
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.runner.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.runner.id
+  filter {
+    name   = "vpc-id"
+    values = [local.vpc_id]
   }
 
   tags = {
-    Name = "${var.name_prefix}-public"
+    Tier = "public"
   }
 }
 
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
+locals {
+  vpc_id    = var.vpc_id != "" ? var.vpc_id : data.aws_vpc.shared[0].id
+  subnet_id = var.subnet_id != "" ? var.subnet_id : sort(data.aws_subnets.public[0].ids)[0]
 }
 
-# Egress only. No SSH. Access the box with SSM Session Manager.
+# Own SG in the shared VPC. Egress only. No SSH — SSM Session Manager.
 resource "aws_security_group" "runner" {
   name        = "${var.name_prefix}-sg"
   description = "GitHub Actions runner: outbound only"
-  vpc_id      = aws_vpc.runner.id
+  vpc_id      = local.vpc_id
 
   egress {
     description = "HTTPS to GitHub, AWS APIs, package mirrors"

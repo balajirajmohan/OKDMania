@@ -3,10 +3,10 @@ locals {
   # Resource-level `tags` (usually just Name) are merged on top; same key → resource wins.
   aws_default_tags = merge(
     {
-      Project   = "OKDMania"
+      Project   = "OKD-Project"
       Component = "github-runner"
       ManagedBy = "terraform"
-      Decision  = "D033"
+      Decision  = "D034"
     },
     var.additional_tags,
     {
