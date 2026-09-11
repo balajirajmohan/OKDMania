@@ -7,9 +7,9 @@ This README is the **single tracker**. Every architecture, tool, and process cal
 | | |
 |---|---|
 | **Current week** | Week 0 — bootstrap (cluster not started) |
-| **Current focus** | **UPI locked (D031).** Team still picks T01–T22. Infra D007, D009–D015 Proposed. |
+| **Current focus** | **Deploy self-hosted GHA runner on AWS (D033).** Then UPI. Team still picks T01–T22. |
 | **Cluster** | Not installed · method = AWS UPI (Terraform machines + Ignition) |
-| **Last updated** | 2026-09-09 · Balaji BR |
+| **Last updated** | 2026-09-11 · Balaji BR |
 | **Repo** | https://github.com/balajirajmohan/OKDMania |
 
 ---
@@ -27,8 +27,9 @@ Week 4 ░░░░░░░░░░░░░░░░░░░░  chaos + ass
 | Stream | Status | Blocker |
 |---|---|---|
 | Decisions | Scope locked. Tools are **options**, not picks yet | Fill **Team pick** on T01–T22 |
-| GitHub repo | Empty besides this README | Invite `deepan011`, `umeshkumaarjj-dev`, `srikanth-karthi`, `sibisaravanan` |
-| AWS account / DNS | Unknown | Need Route 53 zone + quotas |
+| GitHub repo | README + runner Terraform | Invite `deepan011`, `umeshkumaarjj-dev`, `srikanth-karthi`, `sibisaravanan` |
+| GHA runner | Terraform written (`infra/aws/runner/`) | Apply from laptop; wait Idle in GitHub; run `runner-smoke` |
+| AWS account / DNS | Same account as runner + OKD | Need Route 53 zone + quotas |
 | OKD cluster | Not started · **UPI** | Terraform stacks + Ignition + CSR approve; then Operators |
 | Argo CD | Not started | Depends on cluster |
 | OTel Demo | Not started | Depends on GitOps |
@@ -37,6 +38,8 @@ Week 4 ░░░░░░░░░░░░░░░░░░░░  chaos + ass
 
 **Next concrete actions**
 
+- [ ] Apply `infra/aws/runner/` in the OKD AWS account; runner shows **Idle** in GitHub (D033)
+- [ ] Run workflow `runner-smoke` (`workflow_dispatch`) and confirm `aws sts get-caller-identity` is the instance role
 - [ ] Confirm public Route 53 hosted zone (authoritative NS)
 - [ ] Confirm AWS region, account, and instance quotas
 - [ ] Invite GitHub users `deepan011`, `umeshkumaarjj-dev`, `srikanth-karthi`, `sibisaravanan`
@@ -86,7 +89,7 @@ You wrote the four-week scope. Stay on **what good looks like**, not every YAML 
 
 You own **every AWS object** and the **tracker staying true**. UPI means the installer does not spawn EC2 for you.
 
-- **Now:** Add the four collaborators. Create repo layout (`infra/aws/upi/` modules, `cluster/`, `gitops/`, `.github/`, `docs/`) and `.gitignore` for kubeconfigs/tfstate/pull-secret/ignition. Confirm Route 53 zone + AWS quotas/region. Read [OKD AWS UPI](https://docs.okd.io/4.21/installing/installing_aws/upi/installing-aws-user-infra.html); use official CloudFormation as the *spec*, implement in Terraform.
+- **Now:** Add the four collaborators. **D033:** apply `infra/aws/runner/` from your laptop (registration token expires in 1 hour). No SSH — SSM only. After Idle + `runner-smoke`, set `attach_administrator_access = true` so later UPI Terraform runs on this box. Confirm Route 53 zone + AWS quotas/region. Read [OKD AWS UPI](https://docs.okd.io/4.21/installing/installing_aws/upi/installing-aws-user-infra.html); use official CloudFormation as the *spec*, implement in Terraform.
 - **Bring-up (will take more than a calendar week — that is the learning):** Terraform: VPC, subnets, NAT, SGs, IAM instance profiles, S3 (Ignition), NLBs (6443 API, 22623 machine-config, 80/443 apps), Route 53 `api` / `api-int` / `*.apps`. `openshift-install create install-config` → manifests → **remove MachineSets from manifests** so the cluster does not try to create machines → ignition. Launch bootstrap + 3 masters + 3 workers with correct Ignition. Approve CSRs. Wait `bootstrap-complete`. Destroy bootstrap. Then IdP, gp3, registry.
 - **Day-2 (do not skip):** After the cluster is up, **create MachineSets** so later nodes are cluster-managed. UPI install does *not* give you this for free — official docs: control plane and initial compute are not governed by MachineSets. Without this, chaos “replace a worker” is just Terraform apply, not OKD.
 - **Teardown:** reverse-order Terraform destroy (workers → masters → bootstrap leftover → NLBs → VPC). There is no `openshift-install destroy cluster` that owns your UPI stacks.
@@ -211,6 +214,7 @@ Scope from the 2026-09-09 working session and Confluence write-up **OKD - Opensh
 | D030 | 2026-09-09 | Duration | **Learning-first**; four weeks is a guide, not a gate | Locked | Team | UPI + E2E is the curriculum; calendar slips | Artificial IPI rush |
 | D031 | 2026-09-09 | Install method | **AWS UPI**: Terraform (modeled on official CloudFormation) creates VPC, NLBs, IAM, bootstrap, 3 masters, 3 workers. `openshift-install` generates install-config, manifests, Ignition only. Then wait bootstrap, approve CSRs, delete bootstrap | Locked | Team | End-to-end learning: every AWS object, Ignition, ports 6443/22623, teardown | IPI (D008); SNO; Assisted |
 | D032 | 2026-09-09 | UPI day-2 | After UPI cluster is healthy, **create MachineSets** so extra workers are cluster-managed | Proposed | Balaji | Official UPI: initial machines are *not* governed by MachineSets. Without this, MHC/autoscaler chaos is fake | Leave all nodes as snowflake EC2 forever |
+| D033 | 2026-09-11 | CI runner | Persistent **self-hosted GitHub Actions runner on EC2** in the OKD AWS account. Jobs use the instance profile (no long-lived AWS keys in GitHub Secrets). Not ARC — cluster does not exist yet | Locked | Balaji | Same account as UPI; dedicated VPC `10.10.0.0/16`; SSM, not SSH | GitHub-hosted + OIDC only; runner inside OKD before the cluster exists |
 
 ---
 
@@ -585,6 +589,7 @@ What AI will **not** fix: Route 53, SCC vs Helm, worker RAM, dual Prometheus. Th
 - [ ] Confluence task list exported to `docs/`
 - [ ] Repo layout created (`infra/`, `cluster/`, `gitops/`, `.github/workflows/`, `docs/`)
 - [ ] `.gitignore` covers `cluster/*/auth/`, kubeconfigs, `*.tfstate`, pull secrets
+- [ ] Self-hosted runner Idle in GitHub; `runner-smoke` green (D033)
 
 ### Week 1 — OKD UPI infrastructure (expect this to spill)
 
@@ -671,12 +676,14 @@ Official recipe: [Installing on AWS with user-provisioned infrastructure](https:
 | R006 | Too many CNCF tools | Open | T01–T22 is the allow-list; one primary per layer |
 | R007 | Confluence tasks not in Git | Open | Export before week 1 starts |
 | R008 | UPI bootstrap hang (DNS, 22623, tags, IAM, CSR) | Open | Checklist in week 1; pair debug; do not skip D032 |
+| R009 | Public repo + self-hosted runner (fork PRs can run on our EC2) | Open | Keep repo private, or disable fork PR workflows |
 
 ---
 
 ## Target repo layout (not created yet)
 
 ```
+infra/aws/runner/          Terraform: self-hosted GHA runner (D033) — exists
 infra/aws/upi/             Terraform: VPC, NLB, IAM, bootstrap, masters, workers
 cluster/poc/               install-config, manifests, ignition (gitignore auth/)
 gitops/root/               Argo CD app-of-apps

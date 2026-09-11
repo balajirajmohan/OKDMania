@@ -1,0 +1,82 @@
+#!/bin/bash
+set -euo pipefail
+exec > >(tee /var/log/okdmania-runner-bootstrap.log) 2>&1
+
+export DEBIAN_FRONTEND=noninteractive
+AWS_REGION="${aws_region}"
+SSM_PARAM="${ssm_parameter_name}"
+REPO_URL="${github_repo_url}"
+RUNNER_NAME="${runner_name}"
+LABELS="${runner_labels}"
+
+echo "==> packages"
+apt-get update
+apt-get install -y git jq unzip curl ca-certificates gnupg lsb-release tar
+
+echo "==> AWS CLI v2"
+curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+/tmp/aws/install --update
+rm -rf /tmp/aws /tmp/awscliv2.zip
+
+echo "==> SSM agent (Session Manager; no SSH)"
+snap install amazon-ssm-agent --classic || true
+systemctl enable --now amazon-ssm-agent 2>/dev/null || \
+  systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service 2>/dev/null || true
+
+echo "==> Docker"
+curl -fsSL https://get.docker.com | sh
+systemctl enable --now docker
+
+echo "==> Terraform"
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg
+chmod 644 /etc/apt/keyrings/hashicorp.gpg
+echo "deb [signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list
+apt-get update
+apt-get install -y terraform
+
+echo "==> GitHub CLI"
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+chmod 644 /usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list
+apt-get update
+apt-get install -y gh
+
+echo "==> runner user"
+if ! id -u runner >/dev/null 2>&1; then
+  useradd --create-home --shell /bin/bash runner
+fi
+usermod -aG docker runner
+
+echo "==> fetch registration token from SSM (not from user-data)"
+TOKEN="$(aws ssm get-parameter --name "$SSM_PARAM" --with-decryption --query Parameter.Value --output text --region "$AWS_REGION")"
+
+echo "==> download latest GitHub Actions runner"
+install -d -o runner -g runner /home/runner/actions-runner
+cd /home/runner/actions-runner
+LATEST="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | jq -r .tag_name)"
+VER="$${LATEST#v}"
+curl -fsSL -o actions-runner.tar.gz "https://github.com/actions/runner/releases/download/$${LATEST}/actions-runner-linux-x64-$${VER}.tar.gz"
+tar xzf actions-runner.tar.gz
+rm -f actions-runner.tar.gz
+chown -R runner:runner /home/runner/actions-runner
+
+echo "==> register with GitHub"
+sudo -u runner ./config.sh --unattended \
+  --url "$REPO_URL" \
+  --token "$TOKEN" \
+  --name "$RUNNER_NAME" \
+  --labels "$LABELS" \
+  --work _work \
+  --replace
+
+unset TOKEN
+aws ssm delete-parameter --name "$SSM_PARAM" --region "$AWS_REGION" || true
+
+echo "==> install systemd service"
+./svc.sh install runner
+./svc.sh start
+
+touch /var/lib/okdmania-runner-ready
+echo "==> bootstrap complete"
