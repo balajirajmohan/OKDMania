@@ -52,6 +52,10 @@ runcmd:
   - [ hostnamectl, set-hostname, "${hostname}" ]
   # AWS CLI v2 from the official bundle (the apt 'awscli' package is old / v1)
   - [ bash, -c, "cd /tmp && curl -fsSL 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o awscliv2.zip && unzip -q awscliv2.zip && ./aws/install && rm -rf awscliv2.zip aws" ]
+  # session-manager-plugin: required to INITIATE SSM sessions (this box drives
+  # Ansible against the others); the SSM Agent alone only lets a box BE managed.
+  - [ bash, -c, "cd /tmp && curl -fsSL 'https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb' -o session-manager-plugin.deb && dpkg -i session-manager-plugin.deb && rm -f session-manager-plugin.deb" ]
+  - [ bash, -c, "sudo -u ubuntu ansible-galaxy collection install amazon.aws community.aws" ]
   - [ bash, -c, "install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.ssh" ]
   - [ bash, -c, "mkdir -p /home/ubuntu/okd && chown ubuntu:ubuntu /home/ubuntu/okd" ]
   - [ bash, -c, "echo 'OKDMania Ansible control node ready' > /etc/motd" ]
