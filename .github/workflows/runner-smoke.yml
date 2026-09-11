@@ -1,0 +1,24 @@
+name: runner-smoke
+
+# Manual only so a missing runner does not queue forever on every push.
+on:
+  workflow_dispatch:
+
+jobs:
+  prove-self-hosted:
+    name: Prove AWS self-hosted runner
+    runs-on: [self-hosted, linux, x64, aws, okdmania]
+    steps:
+      - name: Identity
+        run: |
+          set -euo pipefail
+          echo "host=$(hostname)"
+          echo "user=$(whoami)"
+          terraform version
+          docker version
+          aws sts get-caller-identity
+          if [ -n "${AWS_ACCESS_KEY_ID:-}" ]; then
+            echo "AWS_ACCESS_KEY_ID should be empty; jobs must use the instance profile."
+            exit 1
+          fi
+          echo "AWS identity is the instance profile, not GitHub secrets."
