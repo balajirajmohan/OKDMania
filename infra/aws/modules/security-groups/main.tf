@@ -184,9 +184,20 @@ resource "aws_vpc_security_group_ingress_rule" "apps_http" {
 }
 
 # ---------------------------------------------------------------------------
-# ICMP within the VPC (path-MTU discovery, ping for debugging)
+# ICMP (ping) - same trusted CIDRs as SSH, plus always allowed within the VPC.
 # ---------------------------------------------------------------------------
-resource "aws_vpc_security_group_ingress_rule" "icmp" {
+resource "aws_vpc_security_group_ingress_rule" "icmp_admin" {
+  for_each = local.ssh_rules
+
+  security_group_id = each.value.sg_id
+  description       = "ICMP from trusted admin CIDR"
+  cidr_ipv4         = each.value.cidr
+  from_port         = -1
+  to_port           = -1
+  ip_protocol       = "icmp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "icmp_vpc" {
   for_each = local.ssh_targets
 
   security_group_id = each.value
