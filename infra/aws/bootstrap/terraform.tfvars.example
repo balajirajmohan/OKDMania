@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is gitignored.
+
+aws_region = "us-east-1"
+
+# S3 bucket names are GLOBALLY unique. Add a suffix nobody else will use -
+# your AWS account id is a safe choice.
+state_bucket_name = "okd-terraform-state-853973692277"
+
+# Leave false unless you are deliberately destroying the whole project.
+force_destroy_state_bucket = false

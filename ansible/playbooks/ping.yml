@@ -1,0 +1,9 @@
+---
+# Connectivity check over SSM. Run after `terraform apply`:
+#   ansible-playbook -i inventory/aws_ec2.yml playbooks/ping.yml
+- name: Verify SSM connectivity to every OKD-Project node
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: ping
+      ansible.builtin.ping:
